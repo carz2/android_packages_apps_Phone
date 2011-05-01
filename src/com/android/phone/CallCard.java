@@ -23,7 +23,7 @@ import android.net.Uri;
 import android.pim.ContactsAsyncHelper;
 import android.provider.ContactsContract.Contacts;
 import android.provider.ContactsContract.RawContacts;
-//import android.telephony.PhoneNumberUtils;
+import android.telephony.PhoneNumberUtils;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.util.AttributeSet;
