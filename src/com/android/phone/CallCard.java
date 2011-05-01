@@ -23,6 +23,7 @@ import android.net.Uri;
 import android.pim.ContactsAsyncHelper;
 import android.provider.ContactsContract.Contacts;
 import android.provider.ContactsContract.RawContacts;
+//import android.telephony.PhoneNumberUtils;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.util.AttributeSet;
@@ -274,7 +275,7 @@ public class CallCard extends FrameLayout
      */
     private void updateForegroundCall(CallManager cm) {
         if (DBG) log("updateForegroundCall()...");
-        if (DBG) PhoneUtils.dumpCallManager();
+        // if (DBG) PhoneUtils.dumpCallManager();
 
         Call fgCall = cm.getActiveFgCall();
         Call bgCall = cm.getFirstActiveBgCall();
@@ -353,8 +354,7 @@ public class CallCard extends FrameLayout
      * (ie. the stuff in the primaryCallInfo block) based on the specified Call.
      */
     private void displayMainCallStatus(CallManager cm, Call call) {
-        if (DBG) log("displayMainCallStatus(phone " + cm
-                     + ", call " + call + ")...");
+        if (DBG) log("displayMainCallStatus(call " + call + ")...");
 
         if (call == null) {
             // There's no call to display, presumably because the phone is idle.
@@ -622,6 +622,7 @@ public class CallCard extends FrameLayout
     private void updateCardTitleWidgets(Phone phone, Call call) {
         if (DBG) log("updateCardTitleWidgets(call " + call + ")...");
         Call.State state = call.getState();
+        Context context = getContext();
 
         // TODO: Still need clearer spec on exactly how title *and* status get
         // set in all states.  (Then, given that info, refactor the code
@@ -634,7 +635,7 @@ public class CallCard extends FrameLayout
             if (!PhoneApp.getInstance().notifier.getIsCdmaRedialCall()) {
                 cardTitle = getTitleForCallCard(call);  // Normal "foreground" call card
             } else {
-                cardTitle = getContext().getString(R.string.card_title_redialing);
+                cardTitle = context.getString(R.string.card_title_redialing);
             }
         } else if ((phoneType == Phone.PHONE_TYPE_GSM)
                 || (phoneType == Phone.PHONE_TYPE_SIP)) {
@@ -655,10 +656,16 @@ public class CallCard extends FrameLayout
                         ? mTextColorConnectedBluetooth : mTextColorConnected;
 
                 if (phoneType == Phone.PHONE_TYPE_CDMA) {
-                    // Check if the "Dialing" 3Way call needs to be displayed
-                    // as the Foreground Call state still remains ACTIVE
+                    // In normal operation we don't use an "upper title" at all,
+                    // except for a couple of special cases:
                     if (mApplication.cdmaPhoneCallState.IsThreeWayCallOrigStateDialing()) {
-                        // Use the "upper title":
+                        // Display "Dialing" while dialing a 3Way call, even
+                        // though the foreground call state is still ACTIVE.
+                        setUpperTitle(cardTitle, mTextColorDefaultPrimary, state);
+                    } else if (PhoneUtils.isPhoneInEcm(phone)) {
+                        // In emergency callback mode (ECM), use a special title
+                        // that shows your own phone number.
+                        cardTitle = getECMCardTitle(context, phone);
                         setUpperTitle(cardTitle, mTextColorDefaultPrimary, state);
                     } else {
                         // Normal "ongoing call" state; don't use any "title" at all.
@@ -760,7 +767,6 @@ public class CallCard extends FrameLayout
         String retVal = null;
         Call.State state = call.getState();
         Context context = getContext();
-        int resId;
 
         if (DBG) log("- getTitleForCallCard(Call " + call + ")...");
 
@@ -1138,6 +1144,8 @@ public class CallCard extends FrameLayout
                 }
             }
             personUri = ContentUris.withAppendedId(Contacts.CONTENT_URI, info.person_id);
+            if (DBG) log("- got personUri: '" + personUri
+                         + "', based on info.person_id: " + info.person_id);
         } else {
             displayName =  getPresentationString(presentation);
         }
@@ -1505,6 +1513,22 @@ public class CallCard extends FrameLayout
      */
     private void clearUpperTitle() {
         setUpperTitle("", 0, Call.State.IDLE);  // Use dummy values for "color" and "state"
+    }
+
+    /**
+     * Returns the special card title used in emergency callback mode (ECM),
+     * which shows your own phone number.
+     */
+    private String getECMCardTitle(Context context, Phone phone) {
+        String rawNumber = phone.getLine1Number();  // may be null or empty
+        String formattedNumber;
+        if (!TextUtils.isEmpty(rawNumber)) {
+            formattedNumber = PhoneNumberUtils.formatNumber(rawNumber);
+        } else {
+            formattedNumber = context.getString(R.string.unknown);
+        }
+        String titleFormat = context.getString(R.string.card_title_my_phone_number);
+        return String.format(titleFormat, formattedNumber);
     }
 
     /**

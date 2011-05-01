@@ -297,6 +297,7 @@ public class InCallScreen extends Activity
     private AlertDialog mWildPromptDialog;
     private AlertDialog mCallLostDialog;
     private AlertDialog mPausePromptDialog;
+    private AlertDialog mExitingECMDialog;
     // NOTE: if you add a new dialog here, be sure to add it to dismissAllDialogs() also.
 
     // TODO: If the Activity class ever provides an easy way to get the
@@ -777,7 +778,14 @@ public class InCallScreen extends Activity
                 // useless if there's no active call.  So bail out.
                 if (DBG) log("  ==> syncWithPhoneState failed; bailing out!");
                 dismissAllDialogs();
-                endInCallScreenSession();
+
+                // Force the InCallScreen to truly finish(), rather than just
+                // moving it to the back of the activity stack (which is what
+                // our finish() method usually does.)
+                // This is necessary to avoid an obscure scenario where the
+                // InCallScreen can get stuck in an inconsistent state, somehow
+                // causing a *subsequent* outgoing call to fail (bug 4172599).
+                endInCallScreenSession(true /* force a real finish() call */);
                 return;
             }
         } else if (phoneIsCdma) {
@@ -1060,7 +1068,25 @@ public class InCallScreen extends Activity
      */
     public void endInCallScreenSession() {
         if (DBG) log("endInCallScreenSession()...");
-        moveTaskToBack(true);
+        endInCallScreenSession(false);
+    }
+
+    /**
+     * Internal version of endInCallScreenSession().
+     *
+     * @param forceFinish If true, force the InCallScreen to
+     *        truly finish() rather than just calling moveTaskToBack().
+     *        @see finish()
+     */
+    private void endInCallScreenSession(boolean forceFinish) {
+        if (DBG) log("endInCallScreenSession(" + forceFinish + ")...");
+        if (forceFinish) {
+            Log.i(LOG_TAG, "endInCallScreenSession(): FORCING a call to super.finish()!");
+            super.finish();  // Call super.finish() rather than our own finish() method,
+                             // which actually just calls moveTaskToBack().
+        } else {
+            moveTaskToBack(true);
+        }
         setInCallScreenMode(InCallScreenMode.UNDEFINED);
     }
 
@@ -1754,6 +1780,10 @@ public class InCallScreen extends Activity
         Connection.DisconnectCause cause = c.getDisconnectCause();
         if (DBG) log("onDisconnect: " + c + ", cause=" + cause);
 
+        // Stash away a copy of the "current intent" in case we need it
+        // later (see the EmergencyCallHandler-related code below.)
+        Intent originalInCallIntent = getIntent();
+
         boolean currentlyIdle = !phoneIsInUse();
         int autoretrySetting = AUTO_RETRY_OFF;
         boolean phoneIsCdma = (mPhone.getPhoneType() == Phone.PHONE_TYPE_CDMA);
@@ -1910,18 +1940,49 @@ public class InCallScreen extends Activity
 
         if (bailOutImmediately) {
             if (VDBG) log("- onDisconnect: bailOutImmediately...");
-            // Retry the call, by resending the intent to the emergency
-            // call handler activity.
-            if ((cause == Connection.DisconnectCause.OUT_OF_SERVICE)
-                    && (emergencyCallRetryCount > 0)) {
-                startActivity(((Intent)getIntent().clone())
-                        .setClassName(this, EmergencyCallHandler.class.getName()));
-            }
+
             // Exit the in-call UI!
             // (This is basically the same "delayed cleanup" we do below,
             // just with zero delay.  Since the Phone is currently idle,
             // this call is guaranteed to immediately finish this activity.)
             delayedCleanupAfterDisconnect();
+
+            // Also, if this was a failed emergency call, we may need to
+            // (re)launch the EmergencyCallHandler in order to retry the
+            // call.
+            // (Note that emergencyCallRetryCount will be -1 if we weren't
+            // launched via the EmergencyCallHandler in the first place.)
+            if ((cause == Connection.DisconnectCause.OUT_OF_SERVICE)
+                    && (emergencyCallRetryCount > 0)) {
+                Log.i(LOG_TAG, "onDisconnect: OUT_OF_SERVICE; need to retry emergency call!");
+                Log.i(LOG_TAG, "- emergencyCallRetryCount = " + emergencyCallRetryCount);
+
+                // Fire off the EmergencyCallHandler, and pass it the
+                // original CALL_EMERGENCY intent that got us here.  (The
+                // EmergencyCallHandler will re-try turning the radio on,
+                // and then pass this intent back to us.)
+
+                // Watch out: we use originalInCallIntent here rather than
+                // the current value of getIntent(), since the current intent
+                // just got reset by the delayedCleanupAfterDisconnect() call
+                // immediately above!
+
+                Intent i = originalInCallIntent.setClassName(this,
+                        EmergencyCallHandler.class.getName());
+                Log.i(LOG_TAG, "- launching: " + i);
+                startActivity(i);
+
+                // TODO: the sequence of startActivity() calls is a little
+                // ugly here.  We just launched the EmergencyCallHandler (see
+                // the code immediately above here), but right before doing
+                // that we *also* called delayedCleanupAfterDisconnect() which
+                // itself calls startActivity() in order to launch the call
+                // log.  Issuing two startActivity() calls in a row like this
+                // makes no sense; in practice the 2nd call wins, but it would
+                // be cleaner for us to force delayedCleanupAfterDisconnect()
+                // to not even try launching the call log if we know we're
+                // about to launch the EmergencyCallHandler instead.
+            }
         } else {
             if (VDBG) log("- onDisconnect: delayed bailout...");
             // Stay on the in-call screen for now.  (Either the phone is
@@ -2531,7 +2592,7 @@ public class InCallScreen extends Activity
      *    the other InCallInitStatus codes indicating what went wrong.
      */
     private InCallInitStatus placeCall(Intent intent) {
-        if (VDBG) log("placeCall()...  intent = " + intent);
+        if (DBG) log("placeCall()...  intent = " + intent);
 
         String number;
         Phone phone = null;
@@ -2616,10 +2677,9 @@ public class InCallScreen extends Activity
             // expecting a callback when the emergency call handler dictates
             // it) and just return the success state.
             if (isEmergencyNumber && (okToCallStatus == InCallInitStatus.POWER_OFF)) {
-                if(DBG) log("EmergencyCall Intent: " + intent);
-                startActivity(((Intent)intent.clone())
-                        .setClassName(this, EmergencyCallHandler.class.getName()));
-                if (DBG) log("placeCall: starting EmergencyCallHandler, finishing InCallScreen...");
+                Log.i(LOG_TAG, "placeCall: Trying to make emergency call while POWER_OFF!");
+                Log.i(LOG_TAG, "- starting EmergencyCallHandler, finishing InCallScreen...");
+                startActivity(intent.setClassName(this, EmergencyCallHandler.class.getName()));
                 endInCallScreenSession();
                 return InCallInitStatus.SUCCESS;
             } else {
@@ -2684,6 +2744,16 @@ public class InCallScreen extends Activity
                 // state right now to notice that specific transition in
                 // onPhoneStateChanged().
                 mDialer.clearDigits();
+
+                // Check for an obscure ECM-related scenario: If the phone
+                // is currently in ECM (Emergency callback mode) and we
+                // dial a non-emergency number, that automatically
+                // *cancels* ECM.  So warn the user about it.
+                // (See showExitingECMDialog() for more info.)
+                if (PhoneUtils.isPhoneInEcm(phone) && !isEmergencyNumber) {
+                    Log.i(LOG_TAG, "About to exit ECM because of an outgoing non-emergency call");
+                    showExitingECMDialog();
+                }
 
                 if (phone.getPhoneType() == Phone.PHONE_TYPE_CDMA) {
                     // Start the 2 second timer for 3 Way CallerInfo
@@ -3565,6 +3635,58 @@ public class InCallScreen extends Activity
         mCallLostDialog.show();
     }
 
+    /**
+     * Displays the "Exiting ECM" warning dialog.
+     *
+     * Background: If the phone is currently in ECM (Emergency callback
+     * mode) and we dial a non-emergency number, that automatically
+     * *cancels* ECM.  (That behavior comes from CdmaCallTracker.dial().)
+     * When that happens, we need to warn the user that they're no longer
+     * in ECM (bug 4207607.)
+     *
+     * So bring up a dialog explaining what's happening.  There's nothing
+     * for the user to do, by the way; we're simply providing an
+     * indication that they're exiting ECM.  We *could* use a Toast for
+     * this, but toasts are pretty easy to miss, so instead use a dialog
+     * with a single "OK" button.
+     *
+     * TODO: it's ugly that the code here has to make assumptions about
+     *   the behavior of the telephony layer (namely that dialing a
+     *   non-emergency number while in ECM causes us to exit ECM.)
+     *
+     *   Instead, this warning dialog should really be triggered by our
+     *   handler for the
+     *   TelephonyIntents.ACTION_EMERGENCY_CALLBACK_MODE_CHANGED intent in
+     *   PhoneApp.java.  But that won't work until that intent also
+     *   includes a *reason* why we're exiting ECM, since we need to
+     *   display this dialog when exiting ECM because of an outgoing call,
+     *   but NOT if we're exiting ECM because the user manually turned it
+     *   off via the EmergencyCallbackModeExitDialog.
+     *
+     *   Or, it might be simpler to just have outgoing non-emergency calls
+     *   *not* cancel ECM.  That way the UI wouldn't have to do anything
+     *   special here.
+     */
+    private void showExitingECMDialog() {
+        Log.i(LOG_TAG, "showExitingECMDialog()...");
+
+        if (mExitingECMDialog != null) {
+            if (DBG) log("- DISMISSING mExitingECMDialog.");
+            mExitingECMDialog.dismiss();  // safe even if already dismissed
+            mExitingECMDialog = null;
+        }
+
+        // Ultra-simple AlertDialog with only an OK button:
+        mExitingECMDialog = new AlertDialog.Builder(this)
+                .setMessage(R.string.progress_dialog_exiting_ecm)
+                .setPositiveButton(R.string.ok, null)
+                .setCancelable(true)
+                .create();
+        mExitingECMDialog.getWindow().addFlags(
+                WindowManager.LayoutParams.FLAG_BLUR_BEHIND);
+        mExitingECMDialog.show();
+    }
+
     private void bailOutAfterErrorDialog() {
         if (mGenericErrorDialog != null) {
             if (DBG) log("bailOutAfterErrorDialog: DISMISSING mGenericErrorDialog.");
@@ -3572,7 +3694,14 @@ public class InCallScreen extends Activity
             mGenericErrorDialog = null;
         }
         if (DBG) log("bailOutAfterErrorDialog(): end InCallScreen session...");
-        endInCallScreenSession();
+
+        // Force the InCallScreen to truly finish(), rather than just
+        // moving it to the back of the activity stack (which is what
+        // our finish() method usually does.)
+        // This is necessary to avoid an obscure scenario where the
+        // InCallScreen can get stuck in an inconsistent state, somehow
+        // causing a *subsequent* outgoing call to fail (bug 4172599).
+        endInCallScreenSession(true /* force a real finish() call */);
     }
 
     /**
@@ -3633,6 +3762,11 @@ public class InCallScreen extends Activity
             if (DBG) log("- DISMISSING mPausePromptDialog.");
             mPausePromptDialog.dismiss();
             mPausePromptDialog = null;
+        }
+        if (mExitingECMDialog != null) {
+            if (DBG) log("- DISMISSING mExitingECMDialog.");
+            mExitingECMDialog.dismiss();
+            mExitingECMDialog = null;
         }
     }
 
@@ -4971,10 +5105,7 @@ public class InCallScreen extends Activity
      * Updates and returns the InCallControlState instance.
      */
     public InCallControlState getUpdatedInCallControlState() {
-        if (VDBG) {
-            log("InCallScreen getUpdatedInCallControlState : ");
-            PhoneUtils.dumpCallManager();
-        }
+        if (VDBG) log("getUpdatedInCallControlState()...");
         mInCallControlState.update();
         return mInCallControlState;
     }
