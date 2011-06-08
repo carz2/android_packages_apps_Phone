@@ -404,6 +404,10 @@ public class PhoneUtils {
             return PreferenceManager.getDefaultSharedPreferences(context)
                       .getBoolean("button_vibrate_call_waiting", false);
         }
+        static boolean showInCallEvents(Context context) {
+            return PreferenceManager.getDefaultSharedPreferences(context)
+                      .getBoolean("button_show_ssn_key", false);
+        }
     }
 
     static boolean hangupRingingCall(Call ringing) {
@@ -2533,6 +2537,15 @@ public class PhoneUtils {
             if (phone != null) return phone;
         }
         return cm.getDefaultPhone();
+    }
+
+    public static Phone getGsmPhone(CallManager cm) {
+        for (Phone phone: cm.getAllPhones()) {
+            if (phone.getPhoneType() == PhoneConstants.PHONE_TYPE_GSM) {
+                return phone;
+            }
+        }
+        return null;
     }
 
     public static Phone getSipPhoneFromUri(CallManager cm, String target) {
