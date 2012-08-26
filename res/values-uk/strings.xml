@@ -621,4 +621,13 @@
     <string name="vibrate_on_ring_title" msgid="9197564612065258960">"Вібрувати під час дзвінка"</string>
     <string name="dtmf_tone_enable_title" msgid="827601042915852989">"Звук клавіш"</string>
     <string name="preference_category_ringtone" msgid="9007490591910078324">"Мелодія"</string>
+    <string name="advanced_setting">Додаткові налаштування</string>
+    <string name="vibrate_outgoing">Вібросигнал відповіді</string>
+    <string name="vibrate_outgoing_sum">Сигналізування про відповідь на виклик вібруванням</string>
+    <string name="vibrate_45">Вібросигнал кожні 45 секунд</string>
+    <string name="vibrate_45_sum">Вібрування кожні 45 секунд під час вихідного виклику</string>
+    <string name="vibrate_hangup">Вібросигнал роз\u2019єднання</string>
+    <string name="vibrate_hangup_sum">Сигналізування про завершення виклику вібруванням</string>
+    <string name="vibrate_call_waiting">Вібросигнал очікування виклику</string>
+    <string name="vibrate_call_waiting_sum">Сигналізування про очікування виклику вібруванням</string>
 </resources>

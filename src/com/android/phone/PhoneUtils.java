@@ -377,7 +377,51 @@ public class PhoneUtils {
         return hungup;
     }
 
+    static Call getCurrentCall(Phone phone) {
+        Call ringing = phone.getRingingCall();
+        Call fg = phone.getForegroundCall();
+        Call bg = phone.getBackgroundCall();
+        if (!ringing.isIdle()) {
+                return ringing;
+                }
+        if (!fg.isIdle()) {
+                return fg;
+                }
+        if (!bg.isIdle()) {
+                return bg;
+                }
+        return fg;
+    }
+
+    static Connection getConnection(Phone phone, Call call) {
+        if (call == null) {
+            return null;
+            }
+
+        if (phone.getPhoneType() == Phone.PHONE_TYPE_CDMA) {
+            return call.getLatestConnection();
+        }
+
+        return call.getEarliestConnection();
+    }
+
     static class PhoneSettings {
+        static boolean vibOn45Secs(Context context) {
+            return PreferenceManager.getDefaultSharedPreferences(context)
+                    .getBoolean("button_vibrate_45", false);
+        }
+        static boolean vibHangup(Context context) {
+            return PreferenceManager.getDefaultSharedPreferences(context)
+                    .getBoolean("button_vibrate_hangup", false);
+        }
+        static boolean vibOutgoing(Context context) {
+            return PreferenceManager.getDefaultSharedPreferences(context)
+                    .getBoolean("button_vibrate_outgoing", false);
+        }
+        static boolean vibCallWaiting(Context context) {
+            return PreferenceManager.getDefaultSharedPreferences(context)
+                    .getBoolean("button_vibrate_call_waiting", false);
+        }
         static boolean keepProximitySensorOn(Context context) {
             return PreferenceManager.getDefaultSharedPreferences(context)
                     .getBoolean("keep_proximity_sensor_on", false);

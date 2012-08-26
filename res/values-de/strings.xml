@@ -625,4 +625,13 @@
     <string name="vibrate_on_ring_title" msgid="9197564612065258960">"Beim Klingeln vibrieren"</string>
     <string name="dtmf_tone_enable_title" msgid="827601042915852989">"Wähltastentöne"</string>
     <string name="preference_category_ringtone" msgid="9007490591910078324">"Klingelton"</string>
+    <string name="advanced_setting">Erweiterte Einstellungen</string>
+    <string name="vibrate_outgoing">Vibriere bei Annahme</string>
+    <string name="vibrate_outgoing_sum">Vibriere, wenn Anruf angenommen wurde</string>
+    <string name="vibrate_45">Vibriere alle 45 Sekunden</string>
+    <string name="vibrate_45_sum">Vibriere alle 45 Sekunden während ausgehender Anrufe</string>
+    <string name="vibrate_hangup">Vibriere bei Auflegen</string>
+    <string name="vibrate_hangup_sum">Vibriere, wenn Anruf beendet wurde</string>
+    <string name="vibrate_call_waiting">Vibriere bei Anklopfen</string>
+    <string name="vibrate_call_waiting_sum">Vibriere bei Anklopfen</string>
 </resources>

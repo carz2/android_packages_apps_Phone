@@ -621,4 +621,13 @@
     <string name="vibrate_on_ring_title" msgid="9197564612065258960">"Mode Vibreur lorsque le téléphone sonne"</string>
     <string name="dtmf_tone_enable_title" msgid="827601042915852989">"Numérotation sonore"</string>
     <string name="preference_category_ringtone" msgid="9007490591910078324">"Sonnerie"</string>
+    <string name="advanced_setting">Paramètres avancés</string>
+    <string name="vibrate_outgoing">Vibrer sur réponse</string>
+    <string name="vibrate_outgoing_sum">Vibration quand la communication est établie</string>
+    <string name="vibrate_45">Vibrer régulièrement</string>
+    <string name="vibrate_45_sum">Vibration toutes les 45 secondes pendant un appel sortant</string>
+    <string name="vibrate_hangup">Vibrer en fin d\'appel</string>
+    <string name="vibrate_hangup_sum">Vibration lorsque l\' appel est terminé</string>
+    <string name="vibrate_call_waiting">Vibrer sur double appel</string>
+    <string name="vibrate_call_waiting_sum">Vibrer lorsqu\'un appel est en attente</string>
 </resources>

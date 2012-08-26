@@ -625,4 +625,15 @@
     <string name="vibrate_on_ring_title" msgid="9197564612065258960">"Vibrazione quando squilla"</string>
     <string name="dtmf_tone_enable_title" msgid="827601042915852989">"Toni tastierino numerico"</string>
     <string name="preference_category_ringtone" msgid="9007490591910078324">"Suoneria"</string>
+    <string name="phone_number_label">Il mio numero di telefono</string>
+    <string name="phone_number_summary">Imposta il numero di telefono per questo dispositivo</string>
+    <string name="advanced_setting">Impostazioni avanzate</string>
+    <string name="vibrate_outgoing">Vibra alla risposta</string>
+    <string name="vibrate_outgoing_sum">Vibra quando rispondi a una chiamata</string>
+    <string name="vibrate_45">Vibra ogni 45 sec</string>
+    <string name="vibrate_45_sum">Vibra ogni 45 secondi durante le chiamate in uscita</string>
+    <string name="vibrate_hangup">Vibra al termine</string>
+    <string name="vibrate_hangup_sum">Vibra quando termini una chiamata</string>
+    <string name="vibrate_call_waiting">Vibra quando in attesa</string>
+    <string name="vibrate_call_waiting_sum">Vibra quando c\'è una chiamata in attesa</string>
 </resources>
