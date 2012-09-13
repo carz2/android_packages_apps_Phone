@@ -45,6 +45,11 @@
             android:title="@string/keep_proximity_sensor_on"
             android:persistent="true"
             android:summary="@string/keep_proximity_sensor_on_sum"/>
+        <CheckBoxPreference
+            android:key="lockscreen_if_call_ends_with_screenoff"
+            android:title="@string/lockscreen_if_call_ends_with_screenoff"
+            android:persistent="false"
+            android:summary="@string/lockscreen_if_call_ends_with_screenoff_sum"/>
     </PreferenceCategory>
 
   <PreferenceCategory
