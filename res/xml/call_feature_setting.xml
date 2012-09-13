@@ -36,6 +36,17 @@
             android:defaultValue="false" />
     </PreferenceCategory>
 
+    <PreferenceCategory
+        android:key="pref_advanced_settings"
+        android:title="@string/advanced_setting">
+
+        <CheckBoxPreference
+            android:key="keep_proximity_sensor_on"
+            android:title="@string/keep_proximity_sensor_on"
+            android:persistent="true"
+            android:summary="@string/keep_proximity_sensor_on_sum"/>
+    </PreferenceCategory>
+
   <PreferenceCategory
       android:key="button_misc_category_key"
       android:title="@string/other_settings"

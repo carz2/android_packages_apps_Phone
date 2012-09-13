@@ -1460,4 +1460,10 @@
 
     <string name="phone_number_label">My phone number</string>
     <string name="phone_number_summary">Set the phone number for this device</string>
+
+    <!-- Advanced Settings -->
+    <string name="advanced_setting">Advanced Settings</string>
+    <string name="keep_proximity_sensor_on">Keep proximity sensor on</string>
+    <string name="keep_proximity_sensor_on_sum">Do not turn off the proximity sensor during calls using a headset</string>
+
 </resources>

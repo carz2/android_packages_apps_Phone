@@ -376,6 +376,13 @@ public class PhoneUtils {
         return hungup;
     }
 
+    static class PhoneSettings {
+        static boolean keepProximitySensorOn(Context context) {
+            return PreferenceManager.getDefaultSharedPreferences(context)
+                    .getBoolean("keep_proximity_sensor_on", false);
+        }
+    };
+
     static boolean hangupRingingCall(Call ringing) {
         if (DBG) log("hangup ringing call");
         int phoneType = ringing.getPhone().getPhoneType();
