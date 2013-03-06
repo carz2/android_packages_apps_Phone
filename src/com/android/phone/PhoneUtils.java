@@ -408,6 +408,10 @@ public class PhoneUtils {
             return PreferenceManager.getDefaultSharedPreferences(context)
                       .getBoolean("button_show_ssn_key", false);
         }
+        static boolean showCallLogAfterCall(Context context) {
+            return PreferenceManager.getDefaultSharedPreferences(context)
+                      .getBoolean("button_calllog_after_call", false);
+        }
     }
 
     static boolean hangupRingingCall(Call ringing) {
