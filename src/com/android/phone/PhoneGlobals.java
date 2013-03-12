@@ -50,7 +50,7 @@ import android.os.SystemProperties;
 import android.os.UpdateLock;
 import android.os.UserHandle;
 import android.preference.PreferenceManager;
-import android.provider.Settings.System;
+import android.provider.Settings;
 import android.telephony.ServiceState;
 import android.text.TextUtils;
 import android.util.Log;
@@ -1434,8 +1434,8 @@ public class PhoneGlobals extends ContextWrapper
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
             if (action.equals(Intent.ACTION_AIRPLANE_MODE_CHANGED)) {
-                boolean enabled = System.getInt(getContentResolver(),
-                        System.AIRPLANE_MODE_ON, 0) == 0;
+                boolean enabled = Settings.Global.getInt(getContentResolver(),
+                        Settings.Global.AIRPLANE_MODE_ON, 0) == 0;
                 phone.setRadioPower(enabled);
             } else if (action.equals(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED)) {
                 mBluetoothHeadsetState = intent.getIntExtra(BluetoothHeadset.EXTRA_STATE,
