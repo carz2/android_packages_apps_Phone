@@ -397,6 +397,7 @@ public class PhoneUtils {
             return getPrefs(context).getBoolean("button_vibrate_hangup", false);
         }
         static boolean vibOutgoing(Context context) {
+            return getPrefs(context).getBoolean("button_vibrate_outgoing", false);
         }
         static boolean vibCallWaiting(Context context) {
             return getPrefs(context).getBoolean("button_vibrate_call_waiting", false);
