@@ -169,7 +169,7 @@ public class CallNotifier extends Handler
     private CallManager mCM;
     private Ringer mRinger;
     private BluetoothHeadset mBluetoothHeadset;
-    private CallLogAsync mCallLog;
+    private CallLogger mCallLogger;
     private boolean mSilentRingerRequested;
 
     private boolean mNextGsmCallIsForwarded;
@@ -209,10 +209,10 @@ public class CallNotifier extends Handler
      * This is only done once, at startup, from PhoneApp.onCreate().
      */
     /* package */ static CallNotifier init(PhoneGlobals app, Phone phone, Ringer ringer,
-                                           CallLogAsync callLog) {
+                                           CallLogger callLogger) {
         synchronized (CallNotifier.class) {
             if (sInstance == null) {
-                sInstance = new CallNotifier(app, phone, ringer, callLog);
+                sInstance = new CallNotifier(app, phone, ringer, callLogger);
             } else {
                 Log.wtf(LOG_TAG, "init() called multiple times!  sInstance = " + sInstance);
             }
@@ -221,10 +221,10 @@ public class CallNotifier extends Handler
     }
 
     /** Private constructor; @see init() */
-    private CallNotifier(PhoneGlobals app, Phone phone, Ringer ringer, CallLogAsync callLog) {
+    private CallNotifier(PhoneGlobals app, Phone phone, Ringer ringer, CallLogger callLogger) {
         mApplication = app;
         mCM = app.mCM;
-        mCallLog = callLog;
+        mCallLogger = callLogger;
 
         mForwardedCalls = new HashSet<Connection>();
         mWaitingCalls = new HashSet<Call>();
@@ -234,18 +234,7 @@ public class CallNotifier extends Handler
 
         registerForNotifications();
 
-        // Instantiate the ToneGenerator for SignalInfo and CallWaiting
-        // TODO: We probably don't need the mSignalInfoToneGenerator instance
-        // around forever. Need to change it so as to create a ToneGenerator instance only
-        // when a tone is being played and releases it after its done playing.
-        try {
-            mSignalInfoToneGenerator = new ToneGenerator(AudioManager.STREAM_VOICE_CALL,
-                    TONE_RELATIVE_VOLUME_SIGNALINFO);
-        } catch (RuntimeException e) {
-            Log.w(LOG_TAG, "CallNotifier: Exception caught while creating " +
-                    "mSignalInfoToneGenerator: " + e);
-            mSignalInfoToneGenerator = null;
-        }
+        createSignalInfoToneGenerator();
 
         mRinger = ringer;
         BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
@@ -274,6 +263,25 @@ public class CallNotifier extends Handler
 
     public boolean isCallHeldRemotely(Call call) {
         return mWaitingCalls.contains(call);
+
+    private void createSignalInfoToneGenerator() {
+        // Instantiate the ToneGenerator for SignalInfo and CallWaiting
+        // TODO: We probably don't need the mSignalInfoToneGenerator instance
+        // around forever. Need to change it so as to create a ToneGenerator instance only
+        // when a tone is being played and releases it after its done playing.
+        if (mSignalInfoToneGenerator == null) {
+            try {
+                mSignalInfoToneGenerator = new ToneGenerator(AudioManager.STREAM_VOICE_CALL,
+                        TONE_RELATIVE_VOLUME_SIGNALINFO);
+                Log.d(LOG_TAG, "CallNotifier: mSignalInfoToneGenerator created when toneplay");
+            } catch (RuntimeException e) {
+                Log.w(LOG_TAG, "CallNotifier: Exception caught while creating " +
+                        "mSignalInfoToneGenerator: " + e);
+                mSignalInfoToneGenerator = null;
+            }
+        } else {
+            Log.d(LOG_TAG, "mSignalInfoToneGenerator created already, hence skipping");
+        }
     }
 
     @Override
@@ -972,11 +980,6 @@ public class CallNotifier extends Handler
         mCM.unregisterForResendIncallMute(this);
         mCM.unregisterForSuppServiceNotification(this);
 
-        // Release the ToneGenerator used for playing SignalInfo and CallWaiting
-        if (mSignalInfoToneGenerator != null) {
-            mSignalInfoToneGenerator.release();
-        }
-
         // Clear ringback tone player
         mInCallRingbackTonePlayer = null;
 
@@ -1265,10 +1268,9 @@ public class CallNotifier extends Handler
         }
 
         if (c != null) {
+            mCallLogger.logCall(c);
+
             final String number = c.getAddress();
-            final long date = c.getCreateTime();
-            final long duration = c.getDurationMillis();
-            final Connection.DisconnectCause cause = c.getDisconnectCause();
             final Phone phone = c.getCall().getPhone();
             final boolean isEmergencyNumber =
                     PhoneNumberUtils.isLocalEmergencyNumber(number, mApplication);
@@ -1288,57 +1290,20 @@ public class CallNotifier extends Handler
             }
             if (VDBG) log("- callLogType: " + callLogType + ", UserData: " + c.getUserData());
 
-
-            {
-                final CallerInfo ci = getCallerInfoFromConnection(c);  // May be null.
-                final String logNumber = getLogNumber(c, ci);
-
-                if (DBG) log("- onDisconnect(): logNumber set to: " + /*logNumber*/ "xxxxxxx");
-
-                // TODO: In getLogNumber we use the presentation from
-                // the connection for the CNAP. Should we use the one
-                // below instead? (comes from caller info)
-
-                // For international calls, 011 needs to be logged as +
-                final int presentation = getPresentation(c, ci);
-
-                if (phone.getPhoneType() == PhoneConstants.PHONE_TYPE_CDMA) {
-                    if ((isEmergencyNumber)
-                            && (mCurrentEmergencyToneState != EMERGENCY_TONE_OFF)) {
-                        if (mEmergencyTonePlayerVibrator != null) {
-                            mEmergencyTonePlayerVibrator.stop();
-                        }
+            if (phone.getPhoneType() == PhoneConstants.PHONE_TYPE_CDMA) {
+                if ((isEmergencyNumber)
+                        && (mCurrentEmergencyToneState != EMERGENCY_TONE_OFF)) {
+                    if (mEmergencyTonePlayerVibrator != null) {
+                        mEmergencyTonePlayerVibrator.stop();
                     }
-                }
-
-                // On some devices, to avoid accidental redialing of
-                // emergency numbers, we *never* log emergency calls to
-                // the Call Log.  (This behavior is set on a per-product
-                // basis, based on carrier requirements.)
-                final boolean okToLogEmergencyNumber =
-                        mApplication.getResources().getBoolean(
-                                R.bool.allow_emergency_numbers_in_call_log);
-
-                // Don't call isOtaSpNumber() on phones that don't support OTASP.
-                final boolean isOtaspNumber = TelephonyCapabilities.supportsOtasp(phone)
-                        && phone.isOtaSpNumber(number);
-
-                // Don't log emergency numbers if the device doesn't allow it,
-                // and never log OTASP calls.
-                final boolean okToLogThisCall =
-                        (!isEmergencyNumber || okToLogEmergencyNumber)
-                        && !isOtaspNumber;
-
-                if (okToLogThisCall) {
-                    CallLogAsync.AddCallArgs args =
-                            new CallLogAsync.AddCallArgs(
-                                mApplication, ci, logNumber, presentation,
-                                callLogType, date, duration);
-                    mCallLog.addCall(args);
                 }
             }
 
-            if (callLogType == Calls.MISSED_TYPE) {
+            final long date = c.getCreateTime();
+            final Connection.DisconnectCause cause = c.getDisconnectCause();
+            final boolean missedCall = c.isIncoming() &&
+                    (cause == Connection.DisconnectCause.INCOMING_MISSED);
+            if (missedCall) {
                 // Show the "Missed call" notification.
                 // (Note we *don't* do this if this was an incoming call that
                 // the user deliberately rejected.)
@@ -1941,37 +1906,15 @@ public class CallNotifier extends Handler
             Connection c = ringingCall.getLatestConnection();
 
             if (c != null) {
-                String number = c.getAddress();
-                int presentation = c.getNumberPresentation();
-                final long date = c.getCreateTime();
-                final long duration = c.getDurationMillis();
                 final int callLogType = mCallWaitingTimeOut ?
                         Calls.MISSED_TYPE : Calls.INCOMING_TYPE;
 
-                // get the callerinfo object and then log the call with it.
-                Object o = c.getUserData();
-                final CallerInfo ci;
-                if ((o == null) || (o instanceof CallerInfo)) {
-                    ci = (CallerInfo) o;
-                } else {
-                    ci = ((PhoneUtils.CallerInfoToken) o).currentInfo;
-                }
+                // TODO: This callLogType override is not ideal. Connection should be astracted away
+                // at a telephony-phone layer that can understand and edit the callTypes within
+                // the abstraction for CDMA devices.
+                mCallLogger.logCall(c, callLogType);
 
-                // Do final CNAP modifications of logNumber prior to logging [mimicking
-                // onDisconnect()]
-                final String logNumber = PhoneUtils.modifyForSpecialCnapCases(
-                        mApplication, ci, number, presentation);
-                final int newPresentation = (ci != null) ? ci.numberPresentation : presentation;
-                if (DBG) log("- onCdmaCallWaitingReject(): logNumber set to: " + logNumber
-                        + ", newPresentation value is: " + newPresentation);
-
-                CallLogAsync.AddCallArgs args =
-                        new CallLogAsync.AddCallArgs(
-                            mApplication, ci, logNumber, presentation,
-                            callLogType, date, duration);
-
-                mCallLog.addCall(args);
-
+                final long date = c.getCreateTime();
                 if (callLogType == Calls.MISSED_TYPE) {
                     // Add missed call notification
                     showMissedCallNotification(c, date);
