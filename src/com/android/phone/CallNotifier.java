@@ -263,6 +263,7 @@ public class CallNotifier extends Handler
 
     public boolean isCallHeldRemotely(Call call) {
         return mWaitingCalls.contains(call);
+    }
 
     private void createSignalInfoToneGenerator() {
         // Instantiate the ToneGenerator for SignalInfo and CallWaiting
@@ -1274,21 +1275,6 @@ public class CallNotifier extends Handler
             final Phone phone = c.getCall().getPhone();
             final boolean isEmergencyNumber =
                     PhoneNumberUtils.isLocalEmergencyNumber(number, mApplication);
-            // Set the "type" to be displayed in the call log (see constants in CallLog.Calls)
-            final int callLogType;
-            if (c.isIncoming()) {
-                if (cause == Connection.DisconnectCause.INCOMING_MISSED) {
-                    callLogType = Calls.MISSED_TYPE;
-                } else if (cause == Connection.DisconnectCause.INCOMING_REJECTED
-                        && PhoneUtils.PhoneSettings.markRejectedCallsAsMissed(mApplication)) {
-                    callLogType = Calls.MISSED_TYPE;
-                } else {
-                    callLogType = Calls.INCOMING_TYPE;
-                }
-            } else {
-                callLogType = Calls.OUTGOING_TYPE;
-            }
-            if (VDBG) log("- callLogType: " + callLogType + ", UserData: " + c.getUserData());
 
             if (phone.getPhoneType() == PhoneConstants.PHONE_TYPE_CDMA) {
                 if ((isEmergencyNumber)
